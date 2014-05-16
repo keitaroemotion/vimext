@@ -7,8 +7,6 @@ opt = ARGV[0]
 LIST_FUNC=0
 SHOWTODO=1
 
-
-
 # delete equal sign and returnthe string required
 def deleaturEqualSign(x)
  tag=x.split(':')[1]
@@ -20,7 +18,7 @@ end
 
 
 def printMethodHead(linesplit)
- print linesplit[0].gsub("{","").gsub("=","").gsub("def","").strip+" ("
+ print "[method] "+linesplit[0].gsub("{","").gsub("=","").gsub("def","").strip+" ("
 end
 def printMethodDetail(linesplit)
   if linesplit[1] != nil
@@ -32,7 +30,7 @@ def printMethodDetail(linesplit)
 end
 
 def isFuncDefinition(line)
-  return (line.strip.start_with? "def") && (!line.include? " new ") && (line.include? "{") && (line.include? "=")
+  return ((line.strip.start_with? "def") && (!line.include? " new ") && (line.include? "{") && (line.include? "=")) ||( (line.include? "should")&&(line.include? "{" )&&(line.include? "\""))
 end
 
 
@@ -48,9 +46,104 @@ def showFileName(cmd,file)
  end
 end
 
+def PrintDir(dir,cmdo)
+  Dir.foreach(dir) do |item|	
+    path=dir+"/"+item
+    if (item.strip == ".") || (item.strip == "..")
+      next
+    end 
+    if (File.directory?(path)) 
+      puts
+      puts "DIRECTORY ===> /#{item}"
+      puts
+      PrintDir(path,cmdo)  
+    end
 
-  
+    puts "********************************************************"
+    puts "[File] "+item 
+    puts "********************************************************"
+    if item.end_with? ".scala"
+      readSourceFile(path,SHOWTODO,cmdo)
+      puts
+    end
+  end 
+end  
+
+
+
+def matches(line,method,key) 
+ return (line.strip.start_with? key) && (line.gsub(key,"").strip.start_with? method )
+end
+
+
+def find_self(line,method,file)
+ if matches(line,method,"def")
+	 begin	
+            # lt ... 'line tokens'
+            lt=line.gsub("def","").strip.split('(')
+            methodname=lt[0]
+            print methodname  +"("
+            lt[1].split(',').each do |x|
+              if x.include? "="
+                x = x.split('=')[0]
+    	      end 
+   	      x = x.split(':')[1]    
+              print "#{x},"
+            end
+            print(")")    
+            puts 
+            puts "[ #{file} ]"
+            puts    
+            return 0
+         rescue Exception => e
+
+         end   
+      end
+      return 1
+end
+
+def refImportPath(f,tdir,method)
+      puts "#{f} : #{tdir} :#{method}"
+      res = 1
+      if f.strip.include? ","
+        f.strip.gsub("{","").gsub("}","").split(',').each do |s|
+          # name.space.{File1,File2} <==== this case! Recursively Iterate Files through 
+          refImportPath(s.strip,tdir,method)
+        end 
+      elsif
+        path=tdir+"/"+f.strip
+        if path.end_with?('_') 
+           path= path.gsub("_","")
+           if File.directory?(path)
+             Directory.foreach(path) do |x|
+                refImportPath(File.basename(path),tdir,method)
+             end
+           end
+           # all the file in the directory gotta be referred to ...
+        elsif File.directory? (path)
+           # just ignore it...           
+        else
+           tdir=(tdir+"/"+f.strip+".Scala").strip
+           puts "[looking for..] "+tdir
+            
+           if File.exists? tdir
+             puts "[test] "+tdir     
+             File.open(tdir).each_line do |line|
+               res =  find_self(line,method,tdir)
+               if res == 0
+                  return res       
+               end  
+             end  
+           end
+           # if File, just do your f**in job and Search!
+        end
+      end
+      return 1
+end
+
+
 def readSourceFile(file,cmd,cmtg)
+ #dd if File.directory?(file)
   showFileName(cmd,file)
 
   # this vflag determines whether to show the next line or not
@@ -59,7 +152,7 @@ def readSourceFile(file,cmd,cmtg)
   lines.each_line do |line|
     lsd = line.strip
     if numero > -1
-      puts line.strip
+      puts " % "+line.strip
       numero -= 1
       next
     end
@@ -88,8 +181,38 @@ def readSourceFile(file,cmd,cmtg)
 end
 
 
-
 case opt
+when "-f"
+  file= ARGV[1]
+  method= ARGV[2]
+  dir=File.dirname(file)
+  # first, look in its own class for the method definition... 
+  #description=""
+  imports = Array.new
+
+  File.open(file).each_line do |line|
+     #if line.include? "//f:"
+     #   description=line.gsub("//f:","").strip
+     #end
+     if line.strip.start_with? "import "
+         imports.push(line)
+     end
+     res= find_self(line,method,file)
+     if res == 0
+       abort
+     end
+  end   
+  
+   
+  imports.each do |f|
+    res = refImportPath(f.strip.gsub("import","").gsub(".","/"),dir,method)
+    if res == 0
+       abort ("done.")
+    end
+  end 
+
+  puts "word '#{method}' not found ... "  
+  puts "File location: #{file} #{method}"
 when "-h"
   puts "*** Vim Editor Extension version 1.0 ***"
   puts
@@ -98,7 +221,7 @@ when "-h"
   puts
   puts "$ ruby vimhacker [-ra][DIRECTORY][-R (optional:recursive)]	... Console out functions of the source code and all of its comments"       +" represented by //"
   puts
-  puts "$ ruby vimhacker [-rq][DIRECTORY][-R(optional)]	... Console out functions of codes and its " + "query(ask) comments, represented by //# "
+  puts "$ ruby vimhacker [-rq][DIRECTORY][-R(optional)]	... Console out functions of codes and its " + "query(ask) comments, represented by //? "
   puts
   puts "$ ruby vimhacker [-rt][DIRECTORY] [-R(optional)]  ... Console out functions of codes and its"  + "todo comments, represented by //todo "
   puts
@@ -109,31 +232,19 @@ end
 
 if opt.start_with? "-r" 
   dir= file
-  cmdo="" 
-  Dir.foreach(dir) do |item|	
-    puts item
-    if item.end_with? ".scala"
-      case opt
+  cmdo=""
+  case opt
       when "-ra"
          cmdo ="//" 
       when "-rq"
          puts "dsfkshflshjk"
-         cmdo="//#" 
+         cmdo="//?" 
       when "-rt"
          cmdo="//todo"  
       else
         abort("your action argument '#{opt}' requested does not make sense."+
               "\n\n[-ra]:all comments [-rq]:all queries(ask)  [-rt]: all todos \n\n"     )    
-      end
-
-      puts "=============================="
-      readSourceFile(dir+"/"+item,SHOWTODO,cmdo)
-      puts "=============================="
-      puts
-    end
-  end 
-#else 
-#  readSourceFile(file,SHOWTODO)
+   end
+  PrintDir(dir,cmdo)
 end
 
-#readSourceFile("/gar/vimhacker/test/SDSAPIServerAccessSpec.scala",LIST_FUNC)
