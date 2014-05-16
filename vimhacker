@@ -1,0 +1,121 @@
+#!/usr/bin/ruby
+
+
+file = ARGV[1]
+opt = ARGV[0]
+
+LIST_FUNC=0
+SHOWTODO=1
+
+
+
+# delete equal sign and returnthe string required
+def deleaturEqualSign(x)
+ tag=x.split(':')[1]
+ if  (tag != nil) && (tag.include? "=")
+     tag = tag.split('=')[0] 
+     print tag.gsub("[","")+","
+ end
+end
+
+
+def printMethodHead(linesplit)
+ print linesplit[0].gsub("{","").gsub("=","").gsub("def","").strip+" ("
+end
+def printMethodDetail(linesplit)
+  if linesplit[1] != nil
+       types= linesplit[1].split(',')
+       types.each do |x|
+          deleaturEqualSign(x)
+       end
+  end
+end
+
+def isFuncDefinition(line)
+  return (line.strip.start_with? "def") && (!line.include? " new ") && (line.include? "{") && (line.include? "=")
+end
+
+
+def isValidComment(cmd, lsd,cmtg)
+ return (cmd == SHOWTODO && (lsd.start_with? cmtg)) 
+end
+
+def showFileName(cmd,file)
+ if cmd == LIST_FUNC
+    puts "=============================================="
+    puts "[#{file}]" 
+    puts "=============================================="
+ end
+end
+
+
+  
+def readSourceFile(file,cmd,cmtg)
+  showFileName(cmd,file)
+
+  # this vflag determines whether to show the next line or not
+  lines=File.open(file,"r")
+  numero=-1
+  lines.each_line do |line|
+    lsd = line.strip
+    if numero > -1
+      puts line.strip
+      numero -= 1
+      next
+    end
+    
+    if isValidComment(cmd, lsd,cmtg)
+      puts line.strip.gsub("//"," ")
+      if line.include? "$scrape"
+        if line.include? "$scrape("
+           index=line.split('$scrape(')[1].split(')')[0]
+           numero=index.to_i-1
+        else
+           numero=0
+        end
+      end
+    end
+    if isFuncDefinition(line)
+      puts "-------------------------------------"
+      linesplit=line.split('(')
+      printMethodHead(linesplit)
+      printMethodDetail(linesplit)
+      print ")"
+      puts
+      puts "------------------------------------------" 
+    end
+  end
+end
+
+
+
+if opt.start_with? "-r" 
+  dir= file
+  cmdo="" 
+  Dir.foreach(dir) do |item|	
+    puts item
+    if item.end_with? ".scala"
+      case opt
+      when "-ra"
+         cmdo ="//" 
+      when "-rq"
+         puts "dsfkshflshjk"
+         cmdo="//#" 
+      when "-rt"
+         cmdo="//todo"  
+      else
+        abort("your action argument '#{opt}' requested does not make sense."+
+              "\n\n[-ra]:all comments [-rq]:all queries(ask)  [-rt]: all todos \n\n"     )    
+      end
+
+      puts "=============================="
+      readSourceFile(dir+"/"+item,SHOWTODO,cmdo)
+      puts "=============================="
+      puts
+    end
+  end 
+#else 
+#  readSourceFile(file,SHOWTODO)
+end
+
+#readSourceFile("/gar/vimhacker/test/SDSAPIServerAccessSpec.scala",LIST_FUNC)
