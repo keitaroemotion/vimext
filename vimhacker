@@ -89,6 +89,24 @@ end
 
 
 
+case opt
+when "-h"
+  puts "*** Vim Editor Extension version 1.0 ***"
+  puts
+  puts "=========================================================="
+  puts "HELP:"
+  puts
+  puts "$ ruby vimhacker [-ra][DIRECTORY][-R (optional:recursive)]	... Console out functions of the source code and all of its comments"       +" represented by //"
+  puts
+  puts "$ ruby vimhacker [-rq][DIRECTORY][-R(optional)]	... Console out functions of codes and its " + "query(ask) comments, represented by //# "
+  puts
+  puts "$ ruby vimhacker [-rt][DIRECTORY] [-R(optional)]  ... Console out functions of codes and its"  + "todo comments, represented by //todo "
+  puts
+  puts "if you want to print out NON_COMMENT areas in a code, you can do it by embedding the" + "following function on the comment line:" + "\n $scrape(n)  ... in n, you put number of line you gotta print out just below the comment line. "   
+else
+
+end
+
 if opt.start_with? "-r" 
   dir= file
   cmdo="" 
