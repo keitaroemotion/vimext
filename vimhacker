@@ -3,9 +3,32 @@
 
 file = ARGV[1]
 opt = ARGV[0]
+rootdir=""
 
 LIST_FUNC=0
 SHOWTODO=1
+
+
+def search(rdir,dir, d,filename)
+   nodet=""
+   rdir=rdir.strip
+   dir.split('/').each do |node|
+      nodet+=node+"/"
+      root=(nodet+d).gsub("//","/").strip
+      if root.gsub("/","") == (rdir+d).strip.gsub("/","")
+          next
+      end
+      targetfile= "#{root}/#{filename}".gsub("//","/")
+      if File.exists? targetfile
+         puts "[FOUND] #{targetfile}"
+         return targetfile
+      end
+   end
+   puts "[NOT FOUND]"
+   abort
+end
+
+
 
 # delete equal sign and returnthe string required
 def deleaturEqualSign(x)
@@ -102,34 +125,36 @@ def find_self(line,method,file)
       return 1
 end
 
-def refImportPath(f,tdir,method)
+def refImportPath(f,tdir,method,rootdir)
       puts "#{f} : #{tdir} :#{method}"
       res = 1
       if f.strip.include? ","
         f.strip.gsub("{","").gsub("}","").split(',').each do |s|
           # name.space.{File1,File2} <==== this case! Recursively Iterate Files through 
-          refImportPath(s.strip,tdir,method)
+          refImportPath(s.strip,tdir,method,rootdir)
         end 
       elsif
         path=tdir+"/"+f.strip
         if path.end_with?('_') 
            path= path.gsub("_","")
+           puts "[PATH] #{path}"
+	   puts "#{f.strip}"
            if File.directory?(path)
              Directory.foreach(path) do |x|
-                refImportPath(File.basename(path),tdir,method)
+                refImportPath(File.basename(path),tdir,method,rootdir)
              end
            end
            # all the file in the directory gotta be referred to ...
         elsif File.directory? (path)
            # just ignore it...           
         else
-           tdir=(tdir+"/"+f.strip+".Scala").strip
-           puts "[looking for..] "+tdir
-            
-           if File.exists? tdir
-             puts "[test] "+tdir     
-             File.open(tdir).each_line do |line|
-               res =  find_self(line,method,tdir)
+           tfile=(tdir+"/"+f.strip+".scala").strip
+           puts "[looking for..] "+tfile
+           tfile= search(rootdir,tfile,tdir,f.strip+".scala")  
+           if tfile != ""  
+             puts "[test] "+tfile     
+             File.open(tfile).each_line do |line|
+               res =  find_self(line,method,tfile)
                if res == 0
                   return res       
                end  
@@ -184,7 +209,8 @@ end
 case opt
 when "-f"
   file= ARGV[1]
-  method= ARGV[2]
+  method= ARGV[3]
+  rootdir=ARGV[2]
   dir=File.dirname(file)
   # first, look in its own class for the method definition... 
   #description=""
@@ -205,7 +231,7 @@ when "-f"
   
    
   imports.each do |f|
-    res = refImportPath(f.strip.gsub("import","").gsub(".","/"),dir,method)
+    res = refImportPath(f.strip.gsub("import","").gsub(".","/"),dir,method,rootdir)
     if res == 0
        abort ("done.")
     end
