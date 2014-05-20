@@ -35,21 +35,27 @@ def deleaturEqualSign(x)
  tag=x.split(':')[1]
  if  (tag != nil) && (tag.include? "=")
      tag = tag.split('=')[0] 
-     print tag.gsub("[","")+","
+     return  tag.gsub("[","")+","
  end
+ return ""
 end
 
 
 def printMethodHead(linesplit)
- print "[method] "+linesplit[0].gsub("{","").gsub("=","").gsub("def","").strip+" ("
+ return  "[method] "+linesplit[0].gsub("{","").gsub("=","").gsub("def","").strip+" ("
 end
 def printMethodDetail(linesplit)
+  tmp=""
   if linesplit[1] != nil
        types= linesplit[1].split(',')
        types.each do |x|
-          deleaturEqualSign(x)
+          sign= deleaturEqualSign(x)
+          if sign.strip != ""
+ 	     tmp += sign	
+          end
        end
   end
+  return tmp
 end
 
 def isFuncDefinition(line)
@@ -62,11 +68,13 @@ def isValidComment(cmd, lsd,cmtg)
 end
 
 def showFileName(cmd,file)
+ arr=Array.new
  if cmd == LIST_FUNC
-    puts "=============================================="
-    puts "[#{file}]" 
-    puts "=============================================="
+    arr.push "=============================================="
+    arr.push "[#{file}]" 
+    arr.push "=============================================="
  end
+ return arr
 end
 
 def PrintDir(dir,cmdo)
@@ -76,18 +84,16 @@ def PrintDir(dir,cmdo)
       next
     end 
     if (File.directory?(path)) 
-      puts
-      puts "DIRECTORY ===> /#{item}"
-      puts
+      puts "[accessing directory...  /#{item}]"
       PrintDir(path,cmdo)  
     end
-
-    puts "********************************************************"
-    puts "[File] "+item 
-    puts "********************************************************"
+    #puts "[accessing file... #{path}]"
+    arr=Array.new
+    arr.push "********************************************************"
+    arr.push "[File] "+item 
+    arr.push "********************************************************"
     if item.end_with? ".scala"
-      readSourceFile(path,SHOWTODO,cmdo)
-      puts
+      readSourceFile(path,SHOWTODO,cmdo,arr)
     end
   end 
 end  
@@ -165,46 +171,79 @@ def refImportPath(f,tdir,method,rootdir)
       end
       return 1
 end
+def removeEmbeddedScript(line)
+   if line.include? "$"
+       tmp=""
+       c=0
+            line.split('$').each do |x|
+               if c != 1
+                tmp+=x
+               end
+            end
+       line=tmp
+  end
+  return line.sub("?","[question]") 
+end
 
-
-def readSourceFile(file,cmd,cmtg)
-    #dd if File.directory?(file)
+def drawline()
+  return "-------------------------------------------------------------------------------------------------------------------------------"
+end
+def readSourceFile(file,cmd,cmtg,fileinf)
+    file=file.gsub("//","/")
     showFileName(cmd,file)
-
-    # this vflag determines whether to show the next line or not
+    #puts "#{file} #{cmtg}"
     lines=File.open(file,"r")
     numero=-1
     linecount=0
+    content_arr=Array.new
+    farr=Array.new
+    tmpcom=""
     lines.each_line do |line|
       linecount=linecount+1
       lsd = line.strip
       if numero > -1
-          puts " > "+line.strip+" [#{linecount}]"
+          content_arr.push("	| "+line.strip+" [#{linecount}]")
           numero -= 1
           next
       end
     
       if isValidComment(cmd, lsd,cmtg)
-          //todo .... remove "$num"
-          puts line.strip.gsub("//"," ") +" [#{linecount}]"
+           
+          line=removeEmbeddedScript(line.strip.gsub("//"," ") )
+          tmpcom=line +" [#{linecount}]"
+          content_arr.push(tmpcom)
           if line.include? "$"
-            if line.include? "$"
-               index=line.split('$')[1].split('')[0]
-               numero=index.to_i-1
-            else
-               numero=0
-            end
+             index=line.split('$')[1].split('')[0]
+             numero=index.to_i-1
+          else
+             numero=0
           end
       end
       if isFuncDefinition(line)
-        puts "-------------------------------------"
-        linesplit=line.split('(')
-        printMethodHead(linesplit)
-        printMethodDetail(linesplit)
-        print ")"
-        puts
-        puts "------------------------------------------" 
+        if content_arr.count > 0
+           
+           content_arr.each do |elem|
+              farr.push elem
+           end
+	   farr.push drawline()	            
+           linesplit=line.split('(')
+           farr.push  printMethodHead(linesplit)+printMethodDetail(linesplit)+")"
+           farr.push drawline()
+        end
+        content_arr=Array.new
       end
+    end
+    
+    if tmpcom != "" 
+      farr.push tmpcom
+    end
+    if farr.count >0
+       fileinf.each do |x|
+          puts x
+       end
+       farr.each do |x|
+          puts x
+       end 
     end
 end
 
@@ -266,10 +305,11 @@ if opt.start_with? "-r"
       when "-ra"
          cmdo ="//" 
       when "-rq"
-         puts "dsfkshflshjk"
          cmdo="//?" 
       when "-rt"
-         cmdo="//todo"  
+         cmdo="//todo" 
+      when "-rm"
+         cmdo="//fmi" 
       else
         abort("your action argument '#{opt}' requested does not make sense."+
               "\n\n[-ra]:all comments [-rq]:all queries(ask)  [-rt]: all todos \n\n"     )    
