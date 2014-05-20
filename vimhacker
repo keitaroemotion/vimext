@@ -174,27 +174,27 @@ def readSourceFile(file,cmd,cmtg)
     # this vflag determines whether to show the next line or not
     lines=File.open(file,"r")
     numero=-1
-    linecount=1
+    linecount=0
     lines.each_line do |line|
+      linecount=linecount+1
       lsd = line.strip
       if numero > -1
-          puts " % "+line.strip+" [#{linecount}]"
+          puts " > "+line.strip+" [#{linecount}]"
           numero -= 1
           next
       end
     
       if isValidComment(cmd, lsd,cmtg)
-          #puts line.strip.gsub("//"," ")
-          puts line.strip.gsub("//"," ")+" [#{linecount}]"
+          //todo .... remove "$num"
+          puts line.strip.gsub("//"," ") +" [#{linecount}]"
           if line.include? "$"
-            if line.include? "$("
-               index=line.split('$(')[1].split(')')[0]
+            if line.include? "$"
+               index=line.split('$')[1].split('')[0]
                numero=index.to_i-1
             else
                numero=0
             end
           end
-       # linecount=linecount+1
       end
       if isFuncDefinition(line)
         puts "-------------------------------------"
@@ -205,7 +205,6 @@ def readSourceFile(file,cmd,cmtg)
         puts
         puts "------------------------------------------" 
       end
-      linecount=linecount+1
     end
 end
 
