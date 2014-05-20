@@ -168,41 +168,45 @@ end
 
 
 def readSourceFile(file,cmd,cmtg)
- #dd if File.directory?(file)
-  showFileName(cmd,file)
+    #dd if File.directory?(file)
+    showFileName(cmd,file)
 
-  # this vflag determines whether to show the next line or not
-  lines=File.open(file,"r")
-  numero=-1
-  lines.each_line do |line|
-    lsd = line.strip
-    if numero > -1
-      puts " % "+line.strip
-      numero -= 1
-      next
-    end
-    
-    if isValidComment(cmd, lsd,cmtg)
-      puts line.strip.gsub("//"," ")
-      if line.include? "$scrape"
-        if line.include? "$scrape("
-           index=line.split('$scrape(')[1].split(')')[0]
-           numero=index.to_i-1
-        else
-           numero=0
-        end
+    # this vflag determines whether to show the next line or not
+    lines=File.open(file,"r")
+    numero=-1
+    linecount=1
+    lines.each_line do |line|
+      lsd = line.strip
+      if numero > -1
+          puts " % "+line.strip+" [#{linecount}]"
+          numero -= 1
+          next
       end
+    
+      if isValidComment(cmd, lsd,cmtg)
+          #puts line.strip.gsub("//"," ")
+          puts line.strip.gsub("//"," ")+" [#{linecount}]"
+          if line.include? "$"
+            if line.include? "$("
+               index=line.split('$(')[1].split(')')[0]
+               numero=index.to_i-1
+            else
+               numero=0
+            end
+          end
+       # linecount=linecount+1
+      end
+      if isFuncDefinition(line)
+        puts "-------------------------------------"
+        linesplit=line.split('(')
+        printMethodHead(linesplit)
+        printMethodDetail(linesplit)
+        print ")"
+        puts
+        puts "------------------------------------------" 
+      end
+      linecount=linecount+1
     end
-    if isFuncDefinition(line)
-      puts "-------------------------------------"
-      linesplit=line.split('(')
-      printMethodHead(linesplit)
-      printMethodDetail(linesplit)
-      print ")"
-      puts
-      puts "------------------------------------------" 
-    end
-  end
 end
 
 
